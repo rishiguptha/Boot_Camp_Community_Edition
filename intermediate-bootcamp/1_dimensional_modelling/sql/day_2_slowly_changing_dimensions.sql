@@ -72,7 +72,8 @@ GROUP BY player_name,
 ORDER BY player_name,
     streak_identifier;
 SELECT *
-FROM players_scd;
+FROM players_scd
+WHERE player_name = 'Michael Jordan';
 
 
 
