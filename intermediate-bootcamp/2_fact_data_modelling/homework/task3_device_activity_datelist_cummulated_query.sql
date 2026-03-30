@@ -1,12 +1,9 @@
 -- Task 3: Incremental datelist cumulative — merge prior snapshot with today’s events so dormant keys keep their history.
-TRUNCATE TABLE user_device_cummulated;
-
-
-INSERT INTO user_device_cummulated
+INSERT INTO user_devices_cumulated
 WITH
     yesterday AS (
         SELECT *
-        FROM user_device_cummulated
+        FROM user_devices_cumulated
         WHERE
             curr_date = DATE ('2023-01-30')
     ),
@@ -32,6 +29,7 @@ SELECT
     CASE
         WHEN y.device_activity_datelist IS NULL THEN ARRAY[t.date_active]
         WHEN t.date_active IS NULL THEN y.device_activity_datelist
+        WHEN y.device_activity_datelist[1] = t.date_active THEN y.device_activity_datelist
         ELSE ARRAY[t.date_active] || y.device_activity_datelist
     END AS device_activity_datelist,
     COALESCE(
@@ -41,7 +39,10 @@ SELECT
 FROM today t
     -- Full outer union: new keys without yesterday vs. keys with no event today still advance curr_date.
     FULL OUTER JOIN yesterday y ON t.user_id = y.user_id
-    AND t.browser_type = y.browser_type;
+    AND t.browser_type = y.browser_type
+ON CONFLICT (user_id, browser_type, curr_date) DO UPDATE
+SET
+    device_activity_datelist = EXCLUDED.device_activity_datelist;
 
 
-SELECT * FROM user_device_cummulated
+SELECT * FROM user_devices_cumulated;

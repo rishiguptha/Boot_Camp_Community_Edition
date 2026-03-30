@@ -1,9 +1,9 @@
 -- Task 5: Cumulative host state — PK (host, curr_date); date array accumulates every day the host served traffic through curr_date.
-DROP TABLE IF EXISTS hosts_cummulated;
+DROP TABLE IF EXISTS hosts_cumulated;
 
-CREATE TABLE hosts_cummulated(
-    host TEXT,
-    host_activity_datelist DATE[],
-    curr_date DATE,
-    PRIMARY KEY(host,curr_date)
-)
+CREATE TABLE hosts_cumulated(
+    host TEXT NOT NULL,
+    host_activity_datelist DATE[] NOT NULL,
+    curr_date DATE NOT NULL,
+    PRIMARY KEY(host, curr_date)
+);

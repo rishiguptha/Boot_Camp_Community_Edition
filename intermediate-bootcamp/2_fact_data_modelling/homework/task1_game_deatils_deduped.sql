@@ -21,7 +21,8 @@ SELECT
     COALESCE(POSITION('DNP' in comment), 0) > 0 AS dim_did_not_play,
     COALESCE(POSITION('DND' in comment), 0) > 0 AS dim_did_not_dress,
     COALESCE(POSITION('NWT' in comment), 0) > 0 AS dim_not_with_team,
-    SPLIT_PART(min, ':', 1)::REAL + SPLIT_PART(min, ':', 2)::REAL / 60 AS m_minutes, -- min stored as "MM:SS"; convert to decimal minutes
+    SPLIT_PART(COALESCE(NULLIF(TRIM(min), ''), '0:00'), ':', 1)::REAL
+        + SPLIT_PART(COALESCE(NULLIF(TRIM(min), ''), '0:00'), ':', 2)::REAL / 60 AS m_minutes, -- min stored as "MM:SS"; convert to decimal minutes
     fgm AS m_fgm,
     fga AS m_fga,
     fg3m AS m_fg3m,

@@ -15,5 +15,7 @@ dist/
 build/
 *.egg/
 
-slides/
+slides_and_guides/
 *.html
+
+*.zip
