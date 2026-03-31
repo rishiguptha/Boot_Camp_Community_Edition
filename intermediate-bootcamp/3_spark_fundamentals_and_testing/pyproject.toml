@@ -1,0 +1,11 @@
+[project]
+name = "3-spark-fundamentals-and-testing"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chispa",
+    "pytest",
+    "pyspark[sql]",
+]
