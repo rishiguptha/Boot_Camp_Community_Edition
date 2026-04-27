@@ -61,29 +61,35 @@ def most_kills_per_game(bucketed_match_details: DataFrame):
     return agg_most_kills_per_game
 
 
-def most_played_playlist(bucketed_joined_data: DataFrame):
+def most_played_playlist(bucket_matches: DataFrame):
     """Find the most played playlist (by playlist_id)."""
 
-    agg_most_played_playlist = bucketed_joined_data.groupBy("playlist_id") \
+    agg_most_played_playlist = bucket_matches.groupBy("playlist_id") \
     .agg(count("match_id")) \
     .withColumnRenamed("count(match_id)", "num_played") \
     .orderBy(col("num_played").desc()) 
 
     return agg_most_played_playlist
 
-def most_played_map(bucketed_joined_data: DataFrame):
+def most_played_map(bucketed_matches: DataFrame , maps: DataFrame):
     """Find the most played map (by map_name)."""
 
-    agg_most_played_map = bucketed_joined_data.groupBy("map_name") \
+    agg_most_played_map = bucketed_matches.join(broadcast(maps.select(col("mapid"), col("name").alias("map_name"), col("description").alias("map_description"))), on = "mapid", how = "inner") \
+    .groupBy("map_name") \
     .agg(count("match_id")) \
     .withColumnRenamed("count(match_id)", "num_played") \
     .orderBy(col("num_played").desc()) 
 
     return agg_most_played_map
 
-def most_killing_spree(bucketed_joined_data: DataFrame):
-    """Count Killing Spree medals per map."""
-    agg_most_killing_spree = bucketed_joined_data.filter(col("classification") == "KillingSpree") \
+def most_killing_spree(bucket_medals_matches_players: DataFrame, medals: DataFrame, bucket_matches: DataFrame, maps: DataFrame):
+    """Count Killing Spree medals per map without joining match_details."""
+    # Keep this path lean: joining match_details here multiplies medal rows.
+    agg_most_killing_spree = bucket_medals_matches_players \
+    .join(broadcast(medals.select(col("medal_id"), col("classification"))), on="medal_id", how="inner") \
+    .filter(col("classification") == "KillingSpree") \
+    .join(bucket_matches.select(col("match_id"), col("mapid")), on="match_id", how="inner") \
+    .join(broadcast(maps.select(col("mapid"), col("name").alias("map_name"))), on="mapid", how="inner") \
     .groupBy("map_name").agg(count("medal_id")) \
     .withColumnRenamed("count(medal_id)", "num_medals") \
     .orderBy(col("num_medals").desc())
@@ -98,6 +104,7 @@ def partition_experiment(df: DataFrame, low_card_col: str, high_card_col: str, o
     .partitionBy(low_card_col) \
     .parquet(f"{output_path}/{name}/low_cardinality") 
 
+    # Same partition key, but locally sorted before write for compression comparison.
     df.repartition(low_card_col) \
         .sortWithinPartitions(col(low_card_col)) \
         .write.mode("overwrite") \
@@ -136,11 +143,11 @@ def main():
 
     agg_kills_per_game = most_kills_per_game(bucket_match_details)
     agg_kills_per_game.show(10)
-    agg_played_playlist = most_played_playlist(bucketed_joined_data)
+    agg_played_playlist = most_played_playlist(bucket_matches)
     agg_played_playlist.show(10)
-    agg_played_map = most_played_map(bucketed_joined_data)
+    agg_played_map = most_played_map(bucket_matches, maps)
     agg_played_map.show(10)
-    agg_killing_spree = most_killing_spree(bucketed_joined_data)
+    agg_killing_spree = most_killing_spree(bucket_medals_matches_players, medals, bucket_matches, maps)
     agg_killing_spree.show(10)
 
     partition_experiment(bucket_matches, "playlist_id", "game_mode", "output/sorted_tables/", "playlist_id_partitioning")
