@@ -58,19 +58,31 @@ def create_processed_events_sink_postgres(t_env):
 class GetLocation(ScalarFunction):
   def eval(self, ip_address):
     url = "https://api.ip2location.io"
+
+    # The ip field may contain multiple comma-separated addresses
+    # (e.g. from X-Forwarded-For headers). Extract only the first one.
+    clean_ip = ip_address.split(',')[0].strip() if ip_address else ''
+    if not clean_ip:
+        return json.dumps({})
+
+    # Browser-like headers are required — Cloudflare blocks the default
+    # python-requests User-Agent with a 403 "error code: 1010"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+    }
     response = requests.get(url, params={
-        'ip': ip_address,
+        'ip': clean_ip,
         'key': os.environ.get("IP_CODING_KEY")
-    })
+    }, headers=headers)
 
     if response.status_code != 200:
-        # Return empty dict if request failed
         return json.dumps({})
 
     data = json.loads(response.text)
 
-    # Extract the country and state from the response
-    # This might change depending on the actual response structure
     country = data.get('country_code', '')
     state = data.get('region_name', '')
     city = data.get('city_name', '')
@@ -128,7 +140,23 @@ def log_processing():
         # Create Kafka table
         source_table = create_events_source_kafka(t_env)
         postgres_sink = create_processed_events_sink_postgres(t_env)
-        print('loading into postgres')
+        kafka_sink    = create_processed_events_sink_kafka(t_env)
+        print("loading into postgres and kafka")
+        t_env.execute_sql(
+            f"""
+                    INSERT INTO {kafka_sink}
+                    SELECT
+                        ip,
+                        event_timestamp,
+                        referrer,
+                        host,
+                        url,
+                        get_location(ip) as geodata
+                    FROM {source_table}
+                    """
+        ).wait()
+
+        
         t_env.execute_sql(
             f"""
                     INSERT INTO {postgres_sink}
