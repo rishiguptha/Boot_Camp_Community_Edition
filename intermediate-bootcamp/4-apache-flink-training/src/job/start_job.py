@@ -147,14 +147,14 @@ def log_processing():
                     INSERT INTO {kafka_sink}
                     SELECT
                         ip,
-                        event_timestamp,
+                        CAST(event_timestamp AS VARCHAR) as event_timestamp,
                         referrer,
                         host,
                         url,
                         get_location(ip) as geodata
                     FROM {source_table}
                     """
-        ).wait()
+        )
 
         
         t_env.execute_sql(
